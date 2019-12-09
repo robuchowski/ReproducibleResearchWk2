@@ -1,0 +1,113 @@
+---
+title: "Reproducible Research Wk 2"
+author: "Ryan Obuchowski"
+date: "12/9/2019"
+output: html_document
+---
+
+## Loading and Preprocessing the data
+load the data into R data frame "activity", make sure that your current working directory houses the data.  In order to get the proper date format for the "date" column, we will have to transorm it with the as.Date function. 
+```{r, echo=TRUE}
+activity <- read.csv("activity.csv")
+activity[,2] <- as.Date(activity$date)
+```
+
+Let's see what the data looks like 
+
+```{r, echo=TRUE}
+str(activity)
+```
+## What is mean total number of steps taken per day? 
+First build and see the histogram of total steps per day
+```{r, echo=TRUE}
+steps1 <-with(activity, tapply(steps, date, sum, na.rm= TRUE))
+hist(steps1, col = "red", xlab = "Total Steps", ylab = "Frequency", main = "Total Number of Steps per Day")
+```
+
+Let's see the average total steps and the median of total steps taken each day by using the summary function.  
+```{r, echo=TRUE}
+summary(steps1)
+```
+
+So the average total steps taken each day is 9354 and, the median number of steps taken each day is 10395. 
+
+## What is the average daily activity pattern?
+First make a time series plot of the five minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis).
+```{r, echo=TRUE}
+avg_steps <- with(activity, tapply(steps, interval, mean, na.rm=TRUE))
+intervals<- unique(activity$interval)
+new <- data.frame(cbind(avg_steps, intervals))
+plot(new$intervals, new$avg_steps, type = "l", xlab = "Intervals", ylab = "Average Steps", main = "Average Steps per Interval")
+```
+
+Let us see which five minute interval contains the maximum number of steps 
+```{r, echo=TRUE}
+index <- which.max(new$avg_steps)
+max <- new[index, 2]
+print(max)
+```
+
+## Imputing Missing Values
+Calculate the average of average steps per day across all dates in the data set while ignoring NA values.  Then use the resulting value in place of the NAs.
+First, create a new dataset that is equal to the original dataset but with the missing values filled in. 
+```{r, echo=TRUE}
+sum(is.na(activity$steps))
+index0 <- which(is.na(activity$steps))
+L <- length(index0)
+steps_avg <- with(activity, tapply(steps, date, mean, na.rm=TRUE))
+na <- mean(steps_avg, na.rm= TRUE)
+for (i in 1:L){
+        activity[index0[i],1] <- na
+}
+```
+Let us see if we filled all the NAs in properly and how the new dataset looks. 
+```{r, echo=TRUE}
+sum(is.na(activity$steps))
+```
+It appears that we have zero NAs which means we have successfully filled all the missing data and the new dataset looks as follows
+```{r, echo=TRUE}
+str(activity)
+```
+
+Let's create a histogram of total steps taken each day with the new dataset
+
+```{r, echo=TRUE}
+steps_2 <- with(activity, tapply(steps, date, sum, na.rm=TRUE))
+hist(steps_2, col= "red", xlab = "Total Steps", ylab = "Frequency", main = "Total Number of Steps per Day")
+```
+
+Let's calculate the mean and median of the total steps taken each day
+```{r, echo=TRUE}
+summary(steps_2)
+```
+The average total steps taken each day is 10766.19 and the median total steps taken each day are 10766.19 once all the NAs were taken care of 
+
+## Are there differences in activity patterns between weekdays and weekends? 
+For this section, we will use the dplyr package so we need to load it from our library
+```{r, echo=TRUE}
+library(dplyr)
+```
+In addition, we will need to create a new variable in the dataset named "day" that shows the day of the week in terms of weekend or weekday
+
+```{r, echo=TRUE}
+activitymod <- mutate(activity, day= ifelse(weekdays(activity$date) == "Saturday" | weekdays(activity$date) == "Sunday", "weekend", "weekday"))
+activitymod$day <- as.factor(activitymod$day)
+str(activitymod)
+```
+
+Now, let's plot the weekday and weekend data in separate graphs
+```{r, echo=TRUE}
+actwknd <-subset(activitymod, as.character(activitymod$day)== "weekend")
+actwkdy <- subset(activitymod, as.character(activitymod$day)== "weekday")
+stepswknd <- with(actwknd, tapply(steps, interval, mean, na.rm=TRUE))
+stepswkdy <- with(actwkdy, tapply( steps, interval, mean, na.rm=TRUE))
+intwknd <- unique(actwknd$interval)
+intwkdy <- unique(actwkdy$interval)
+newwknd <- data.frame(cbind(stepswknd, intwknd))
+newwkdy <- data.frame(cbind(stepswkdy, intwkdy))
+par(mfrow=c(2,1), mar=c(4,4,2,1))
+plot(newwknd$intwknd, newwknd$stepswknd, type="l", xlab="Intervals", ylab="Average Steps", main= "Weekend")
+plot(newwkdy$intwkdy, newwkdy$stepswkdy, type="l", xlab = "Intervals", ylab= "Average Steps", main= "Weekday")
+```
+
+The graphs show that the average steps over the weekends have a higher patter than that of the weekdays. 
